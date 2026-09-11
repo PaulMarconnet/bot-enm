@@ -120,7 +120,6 @@ def main():
 
     for event in events:
         titre = event.get('summary', '')
-        lieu = event.get('location', '').strip()
         
         if MOT_CLE in titre:
             cible_trouvee = True
@@ -171,11 +170,12 @@ def main():
                 
                 event['location'] = meilleure_salle['nom']
                 
-                description_texte = "🎹 Top 3 des salles à demander à l'accueil :\n"
+                # Description propre, uniquement le Top numéroté
+                description_lignes = []
                 for i, s in enumerate(salles_disponibles, 1):
-                    description_texte += f"{i}. {s['nom']} ({s['deb']} - {s['fin']})\n"
+                    description_lignes.append(f"{i}. {s['nom']} ({s['deb']} - {s['fin']})")
                 
-                event['description'] = description_texte.strip()
+                event['description'] = "\n".join(description_lignes)
                 
                 if meilleure_salle['deb'] != req_deb_str:
                     event['start']['dateTime'] = start_dt.replace(
@@ -187,12 +187,12 @@ def main():
                     ).isoformat()
                 
                 service.events().update(calendarId=calendar_id, eventId=event['id'], body=event).execute()
-                print("✏️ Agenda mis à jour avec le Top 3 !")
+                print("✏️ Agenda mis à jour avec le Top 3 épuré !")
             else:
                 print("🚨 Aucune salle dispo dans le Top 10 respectant les critères.")
 
     if not cible_trouvee:
-        print("📭 Aucun créneau 'Piano ENM' sans lieu détecté pour les 7 prochains jours.")
+        print("📭 Aucun créneau 'Piano ENM' détecté pour les 7 prochains jours.")
 
 if __name__ == '__main__':
     main()
