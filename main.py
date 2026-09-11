@@ -145,7 +145,6 @@ def main():
             
             salles_disponibles = []
             
-            # On cherche jusqu'à 3 salles disponibles
             for salle_preferee in top_rooms:
                 if salle_preferee in data_salles:
                     occupations = data_salles[salle_preferee]['reservations']
@@ -167,19 +166,17 @@ def main():
                     break
             
             if salles_disponibles:
-                 meilleure_salle = salles_disponibles[0]
-                 print(f"✅ Top 3 trouvé ! Meilleure option : {meilleure_salle['nom']}")
-                 
-                 event['location'] = meilleure_salle['nom']
-                 
-                 # Construction de la description avec le Top 3 pour l'accueil
-                 description_texte = "🎹 Top 3 des salles à demander à l'accueil :\n"
-                 for i, s in enumerate(salles_disponibles, 1):
-                     description_texte += f"{i}. {s['nom']} ({s['deb']} - {s['fin']})\n"
+                meilleure_salle = salles_disponibles[0]
+                print(f"✅ Top 3 trouvé ! Meilleure option : {meilleure_salle['nom']}")
+                
+                event['location'] = meilleure_salle['nom']
+                
+                description_texte = "🎹 Top 3 des salles à demander à l'accueil :\n"
+                for i, s in enumerate(salles_disponibles, 1):
+                    description_texte += f"{i}. {s['nom']} ({s['deb']} - {s['fin']})\n"
                 
                 event['description'] = description_texte.strip()
                 
-                # Mise à jour des horaires sur l'agenda si ajustement sur la meilleure salle
                 if meilleure_salle['deb'] != req_deb_str:
                     event['start']['dateTime'] = start_dt.replace(
                         hour=int(meilleure_salle['deb'][:2]), minute=int(meilleure_salle['deb'][3:])
