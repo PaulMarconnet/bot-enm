@@ -122,7 +122,7 @@ def main():
         titre = event.get('summary', '')
         lieu = event.get('location', '').strip()
         
-        if MOT_CLE in titre and not lieu:
+        if MOT_CLE in titre:
             cible_trouvee = True
             start_dt = datetime.datetime.fromisoformat(event['start'].get('dateTime'))
             end_dt = datetime.datetime.fromisoformat(event['end'].get('dateTime'))
