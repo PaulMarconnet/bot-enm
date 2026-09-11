@@ -56,12 +56,6 @@ JS_EXTRACTOR = """
 """
 
 def ajuster_et_valider_creneau(occupations, req_debut, req_fin):
-    """
-    Vérifie et ajuste la dispo selon tes critères stricts :
-    - Début : Tolérance max de 15 minutes de retard.
-    - Fin : Troncature max de 30 minutes ET max 20% de la durée totale du créneau.
-    - Durée minimale restante : au moins 30 minutes.
-    """
     req_deb_dt = datetime.datetime.strptime(req_debut, "%H:%M")
     req_fin_dt = datetime.datetime.strptime(req_fin, "%H:%M")
     total_duration_minutes = (req_fin_dt - req_deb_dt).total_seconds() / 60
@@ -73,33 +67,24 @@ def ajuster_et_valider_creneau(occupations, req_debut, req_fin):
         res_deb_dt = datetime.datetime.strptime(res['debut'], "%H:%M")
         res_fin_dt = datetime.datetime.strptime(res['fin'], "%H:%M")
         
-        # S'il y a un chevauchement avec notre fenêtre
         if not (res_fin_dt <= nouveau_deb_dt or res_deb_dt >= nouveau_fin_dt):
-            # Le cours mord sur le début -> on décale notre début si le cours finit bientôt
             if res_deb_dt <= nouveau_deb_dt:
                 nouveau_deb_dt = max(nouveau_deb_dt, res_fin_dt)
-            
-            # Le cours commence pendant notre créneau -> on raccourcit notre fin
             if res_fin_dt >= nouveau_fin_dt and res_deb_dt < nouveau_fin_dt:
                 nouveau_fin_dt = min(nouveau_fin_dt, res_deb_dt)
             elif res_deb_dt > nouveau_deb_dt and res_fin_dt < nouveau_fin_dt:
                 nouveau_fin_dt = min(nouveau_fin_dt, res_deb_dt)
 
-    # --- VALIDATION DES CONTRAINTES ---
-    
-    # 1. Contrainte de début : Max 15 minutes de retard tolérées
     retard_minutes = (nouveau_deb_dt - req_deb_dt).total_seconds() / 60
     if retard_minutes > 15:
         return None, None
         
-    # 2. Contrainte de fin : Max 30 min ET max 20% de la durée totale du créneau
     avance_minutes = (req_fin_dt - nouveau_fin_dt).total_seconds() / 60
     if avance_minutes > 0:
         max_truncation = min(30, total_duration_minutes * 0.20)
         if avance_minutes > max_truncation:
             return None, None
             
-    # 3. Durée minimale de travail restante : au moins 30 minutes
     duree_restante = (nouveau_fin_dt - nouveau_deb_dt).total_seconds() / 60
     if duree_restante < 30:
         return None, None
@@ -158,39 +143,54 @@ def main():
                 data_salles = page.evaluate(JS_EXTRACTOR)
                 browser.close()
             
-            salle_choisie = None
-            nouvelle_deb_str = req_deb_str
-            nouvelle_fin_str = req_fin_str
+            salles_disponibles = []
             
+            # On cherche jusqu'à 3 salles disponibles
             for salle_preferee in top_rooms:
                 if salle_preferee in data_salles:
                     occupations = data_salles[salle_preferee]['reservations']
                     deb_valide, fin_validee = ajuster_et_valider_creneau(occupations, req_deb_str, req_fin_str)
                     if deb_valide and fin_validee:
-                        salle_choisie = salle_preferee
-                        nouvelle_deb_str = deb_valide
-                        nouvelle_fin_str = fin_validee
-                        break
+                        salles_disponibles.append({
+                            'nom': salle_preferee,
+                            'deb': deb_valide,
+                            'fin': fin_validee
+                        })
                 else:
-                    salle_choisie = salle_preferee
+                    salles_disponibles.append({
+                        'nom': salle_preferee,
+                        'deb': req_deb_str,
+                        'fin': req_fin_str
+                    })
+                
+                if len(salles_disponibles) >= 3:
                     break
             
-            if salle_choisie:
-                print(f"✅ Attribué : {salle_choisie} (Ajusté de {nouvelle_deb_str} à {nouvelle_fin_str})")
-                event['location'] = salle_choisie
+            if salles_disponibles:
+                 meilleure_salle = salles_disponibles[0]
+                 print(f"✅ Top 3 trouvé ! Meilleure option : {meilleure_salle['nom']}")
+                 
+                 event['location'] = meilleure_salle['nom']
+                 
+                 # Construction de la description avec le Top 3 pour l'accueil
+                 description_texte = "🎹 Top 3 des salles à demander à l'accueil :\n"
+                 for i, s in enumerate(salles_disponibles, 1):
+                     description_texte += f"{i}. {s['nom']} ({s['deb']} - {s['fin']})\n"
                 
-                # Mise à jour propre des heures de début et de fin sur l'agenda si ajustement il y a
-                if nouvelle_deb_str != req_deb_str:
+                event['description'] = description_texte.strip()
+                
+                # Mise à jour des horaires sur l'agenda si ajustement sur la meilleure salle
+                if meilleure_salle['deb'] != req_deb_str:
                     event['start']['dateTime'] = start_dt.replace(
-                        hour=int(nouvelle_deb_str[:2]), minute=int(nouvelle_deb_str[3:])
+                        hour=int(meilleure_salle['deb'][:2]), minute=int(meilleure_salle['deb'][3:])
                     ).isoformat()
-                if nouvelle_fin_str != req_fin_str:
+                if meilleure_salle['fin'] != req_fin_str:
                     event['end']['dateTime'] = end_dt.replace(
-                        hour=int(nouvelle_fin_str[:2]), minute=int(nouvelle_fin_str[3:])
+                        hour=int(meilleure_salle['fin'][:2]), minute=int(meilleure_salle['fin'][3:])
                     ).isoformat()
                 
                 service.events().update(calendarId=calendar_id, eventId=event['id'], body=event).execute()
-                print("✏️ Agenda mis à jour avec succès !")
+                print("✏️ Agenda mis à jour avec le Top 3 !")
             else:
                 print("🚨 Aucune salle dispo dans le Top 10 respectant les critères.")
 
