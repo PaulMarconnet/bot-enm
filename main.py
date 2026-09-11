@@ -5,7 +5,12 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from playwright.sync_api import sync_playwright
 
-# --- CONFIGURATION ---
+# --- CHARGEMENT DYNAMIQUE DU TOP 10 ---
+try:
+    with open('salles.txt', 'r', encoding='utf-8') as f:
+        TOP_ROOMS = [line.strip() for line in f if line.strip()]
+except FileNotFoundError:
+    print("⚠️ Fichier salles.txt introuvable, utilisation d'un classement par défaut.")
 TOP_ROOMS = [
     "A3-03 GRENIER A MUSIQUES", "A2-09 SCHUMANN", "A00-02 BEETHOVEN",
     "A2-04 CHOPIN", "B2-08 ALBENIZ", "A2-05 CAGE", "B0-03 MONK",
